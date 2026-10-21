@@ -1,115 +1,172 @@
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:semesta/data/library_store.dart';
 import 'package:semesta/data/models.dart';
-import 'package:semesta/data/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<AppStore> _store() async {
+Future<LibraryStore> _store() async {
   SharedPreferences.setMockInitialValues({});
-  return AppStore.load();
+  return LibraryStore.load();
 }
+
+Doc _add(LibraryStore s, String title, {int pages = 10, DocCategory? c}) =>
+    s.addDoc(
+      title: title,
+      storageKey: 'k-$title',
+      pageCount: pages,
+      category: c ?? DocCategory.other,
+    );
 
 void main() {
-  group('normalizeUrl', () {
-    test('adds https and keeps valid urls', () {
-      expect(normalizeUrl('example.com/a'), 'https://example.com/a');
-      expect(normalizeUrl('  http://example.com  '), 'http://example.com');
-    });
-
-    test('rejects non-links', () {
-      expect(normalizeUrl(''), isNull);
-      expect(normalizeUrl('hello world'), isNull);
-      expect(normalizeUrl('localhost'), isNull);
-      expect(normalizeUrl('ftp://example.com'), isNull);
-    });
-  });
-
-  test('titleFromUrl builds a readable offline title', () {
+  test('titleFromFileName prettifies file names', () {
     expect(
-      titleFromUrl('https://www.seriouseats.com/best-pancake-recipe'),
-      'Best pancake recipe',
+      titleFromFileName('intro_to-algorithms_v2.PDF'),
+      'Intro to algorithms v2',
     );
-    expect(titleFromUrl('https://example.com/'), 'example.com');
+    expect(titleFromFileName('.pdf'), 'Untitled');
   });
 
-  group('AppStore', () {
-    test('seeds starter collections with Unsorted first', () async {
-      final store = await _store();
-      expect(store.rootCollections.first.isUnsorted, isTrue);
-      expect(store.rootCollections.length, greaterThan(1));
-    });
-
-    test('adds, dedupes and validates links', () async {
-      final store = await _store();
-      final before = store.linkCount(Collection.unsortedId);
-      expect(store.addLink('nope nope'), AddLinkResult.invalid);
-      expect(store.addLink('example.com/x'), AddLinkResult.added);
-      expect(store.addLink('https://example.com/x'), AddLinkResult.duplicate);
-      expect(store.linkCount(Collection.unsortedId), before + 1);
-    });
-
-    test('moves, deletes and restores a link', () async {
-      final store = await _store();
-      store.addLink('example.com/m');
-      final link = store.lastAdded!;
-      final target = store.rootCollections[1];
-      store.moveLink(link.id, target.id);
-      expect(store.linksIn(target.id).any((l) => l.id == link.id), isTrue);
-      store.deleteLink(link.id);
-      expect(store.linksIn(target.id).any((l) => l.id == link.id), isFalse);
-      store.restoreLink(link.copyWith(collectionId: target.id));
-      expect(store.linksIn(target.id).any((l) => l.id == link.id), isTrue);
-    });
-
-    test('deleting a collection moves its links to Unsorted', () async {
-      final store = await _store();
-      final c = store.addCollection(
-        name: 'Temp',
-        colorIndex: 1,
-        iconKey: 'star',
+  group('Doc progress', () {
+    test('is 0 on the first page and 1 on the last', () {
+      final d = Doc(
+        id: 'a',
+        title: 'A',
+        storageKey: 'k',
+        category: DocCategory.other,
+        addedAt: _epoch,
+        pageCount: 11,
       );
-      final sub = store.addCollection(
-        name: 'Sub',
-        colorIndex: 2,
-        iconKey: 'star',
-        parentId: c.id,
-      );
-      store.addLink('example.com/a', collectionId: c.id);
-      store.addLink('example.com/b', collectionId: sub.id);
-      expect(store.linkCount(c.id), 2);
-      expect(store.folderCount(c.id), 1);
+      expect(d.progress, 0);
+      expect(d.copyWith(lastPage: 6).progress, closeTo(.5, 1e-9));
+      expect(d.copyWith(lastPage: 11).progress, 1);
+      expect(d.copyWith(lastPage: 11).finished, isTrue);
+    });
+  });
 
-      final unsorted = store.linkCount(Collection.unsortedId);
-      store.deleteCollection(c.id);
-      expect(store.collection(c.id), isNull);
-      expect(store.collection(sub.id), isNull);
-      expect(store.linkCount(Collection.unsortedId), unsorted + 2);
+  group('LibraryStore', () {
+    test('starts empty with dark theme by default', () async {
+      final s = await _store();
+      expect(s.docs, isEmpty);
+      expect(s.themeMode, ThemeMode.dark);
+      expect(s.continueReading, isNull);
     });
 
-    test('Unsorted cannot be deleted', () async {
-      final store = await _store();
-      store.deleteCollection(Collection.unsortedId);
-      expect(store.collection(Collection.unsortedId), isNotNull);
+    test('records progress and clamps the page', () async {
+      final s = await _store();
+      final d = _add(s, 'Book');
+      s.recordProgress(d.id, page: 4, pageCount: 10);
+      expect(s.doc(d.id)!.lastPage, 4);
+      expect(s.doc(d.id)!.lastOpenedAt, isNotNull);
+      s.recordProgress(d.id, page: 99, pageCount: 10);
+      expect(s.doc(d.id)!.lastPage, 10);
     });
 
-    test('persists across loads', () async {
+    test('continueReading is the latest opened, unfinished document', () async {
+      final s = await _store();
+      final a = _add(s, 'A');
+      final b = _add(s, 'B');
+      s.recordProgress(a.id, page: 3, pageCount: 10);
+      await Future<void>.delayed(const Duration(milliseconds: 2));
+      s.recordProgress(b.id, page: 2, pageCount: 10);
+      expect(s.continueReading!.id, b.id);
+
+      s.recordProgress(b.id, page: 10, pageCount: 10); // finished
+      expect(s.continueReading!.id, a.id);
+    });
+
+    test('docsSorted puts recently opened first', () async {
+      final s = await _store();
+      final a = _add(s, 'A');
+      final b = _add(s, 'B');
+      expect(s.docsSorted().map((d) => d.id), [
+        b.id,
+        a.id,
+      ]); // newest added first
+      s.markOpened(a.id);
+      expect(s.docsSorted().first.id, a.id);
+    });
+
+    test('filters by category and lists used categories', () async {
+      final s = await _store();
+      _add(s, 'T', c: DocCategory.textbook);
+      _add(s, 'N', c: DocCategory.novel);
+      expect(s.usedCategories, [DocCategory.textbook, DocCategory.novel]);
+      expect(s.docsSorted(DocCategory.novel).single.title, 'N');
+    });
+
+    test('toggles bookmarks and keeps them sorted', () async {
+      final s = await _store();
+      final d = _add(s, 'Book');
+      expect(s.toggleBookmark(d.id, 7), isTrue);
+      expect(s.toggleBookmark(d.id, 2), isTrue);
+      expect(s.doc(d.id)!.bookmarks.map((b) => b.page), [2, 7]);
+      expect(s.toggleBookmark(d.id, 7), isFalse);
+      expect(s.doc(d.id)!.bookmarks.map((b) => b.page), [2]);
+    });
+
+    test('updates title and category, ignoring blank titles', () async {
+      final s = await _store();
+      final d = _add(s, 'Old');
+      s.updateDoc(d.id, title: 'New', category: DocCategory.lecture);
+      expect(s.doc(d.id)!.title, 'New');
+      expect(s.doc(d.id)!.category, DocCategory.lecture);
+      s.updateDoc(d.id, title: '   ');
+      expect(s.doc(d.id)!.title, 'New');
+    });
+
+    test('searches title and category', () async {
+      final s = await _store();
+      _add(s, 'Linear Algebra', c: DocCategory.textbook);
+      _add(s, 'Solo Leveling', c: DocCategory.manhwa);
+      expect(s.search('algebra').single.title, 'Linear Algebra');
+      expect(s.search('manhwa').single.title, 'Solo Leveling');
+      expect(s.search('  '), isEmpty);
+    });
+
+    test('removeDoc and clearAll return what they removed', () async {
+      final s = await _store();
+      final a = _add(s, 'A');
+      _add(s, 'B');
+      expect(s.removeDoc(a.id)!.title, 'A');
+      expect(s.removeDoc(a.id), isNull);
+      expect(s.clearAll().map((d) => d.title), ['B']);
+      expect(s.docs, isEmpty);
+    });
+
+    test('persists docs and settings across loads', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      final a = await AppStore.load(prefs);
-      a.addLink('example.com/persist');
-      a.themeMode = ThemeMode.dark;
-      final b = await AppStore.load(prefs);
-      expect(b.searchLinks('persist').map((l) => l.url), [
-        'https://example.com/persist',
-      ]);
-      expect(b.themeMode, ThemeMode.dark);
+      final a = await LibraryStore.load(prefs);
+      final d = _add(a, 'Keep');
+      a.recordProgress(d.id, page: 5, pageCount: 10);
+      a.toggleBookmark(d.id, 5);
+      a.themeMode = ThemeMode.light;
+      a.nightReading = true;
+      await a.flush();
+
+      final b = await LibraryStore.load(prefs);
+      final back = b.docs.single;
+      expect(back.title, 'Keep');
+      expect(back.lastPage, 5);
+      expect(back.bookmarks.single.page, 5);
+      expect(b.themeMode, ThemeMode.light);
+      expect(b.nightReading, isTrue);
     });
 
-    test('search matches title, url and collection name', () async {
-      final store = await _store();
-      expect(store.searchLinks('flutter'), isNotEmpty);
-      expect(store.searchCollections('coffee').single.name, contains('Coffee'));
-      expect(store.searchLinks('   '), isEmpty);
-    });
+    test(
+      'settings changes notify settingsChanges, doc changes do not',
+      () async {
+        final s = await _store();
+        var settings = 0;
+        s.settingsChanges.addListener(() => settings++);
+        final d = _add(s, 'A');
+        s.recordProgress(d.id, page: 2, pageCount: 10);
+        expect(settings, 0);
+        s.nightReading = true;
+        expect(settings, 1);
+      },
+    );
   });
 }
+
+final _epoch = DateTime.utc(2026);

@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../core/services.dart';
 import '../data/store_scope.dart';
-import '../widgets/brutal.dart';
 import 'home_screen.dart' show contentGutter;
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   Future<void> _clear(BuildContext context) async {
-    final store = StoreScope.read(context);
+    final library = ServicesScope.of(context).library;
     final messenger = ScaffoldMessenger.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.delete_forever_outlined),
-        title: const Text('Delete everything?'),
+        title: const Text('Delete the whole library?'),
         content: const Text(
-          'All collections and saved links on this device will be removed. '
-          'This can’t be undone.',
+          'All documents, reading progress and bookmarks on this device will '
+          'be removed. Your original files are not touched.',
         ),
         actions: [
           TextButton(
@@ -32,10 +32,10 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
     if (ok == true) {
-      store.clearAll();
+      await library.deleteAll();
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('All data deleted')));
+        ..showSnackBar(const SnackBar(content: Text('Library deleted')));
     }
   }
 
@@ -47,17 +47,16 @@ class SettingsScreen extends StatelessWidget {
     final gutter = contentGutter(context);
 
     Widget label(String s) => Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 12),
-      child: Text(s, style: text.titleMedium),
+      padding: const EdgeInsets.only(bottom: 8, top: 20),
+      child: Text(s, style: text.titleSmall?.copyWith(color: scheme.primary)),
     );
 
     return Scaffold(
-      backgroundColor: scheme.surface,
       body: CustomScrollView(
         slivers: [
           const SliverAppBar.large(title: Text('Settings')),
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(gutter, 0, gutter + 4, 40),
+            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 40),
             sliver: SliverList.list(
               children: [
                 label('Appearance'),
@@ -86,43 +85,47 @@ class SettingsScreen extends StatelessWidget {
                     onSelectionChanged: (s) => store.themeMode = s.first,
                   ),
                 ),
-                const SizedBox(height: 20),
-                BrutalBox(
-                  offset: const Offset(3, 4),
-                  child: SwitchListTile(
-                    title: Text('Dynamic color', style: text.titleSmall),
-                    subtitle: const Text(
-                      'Match your wallpaper on Android 12 and up',
-                    ),
-                    value: store.useDynamicColor,
-                    onChanged: (v) => store.useDynamicColor = v,
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Dynamic color'),
+                  subtitle: const Text(
+                    'Match your wallpaper on Android 12 and up',
                   ),
+                  value: store.useDynamicColor,
+                  onChanged: (v) => store.useDynamicColor = v,
                 ),
-                const SizedBox(height: 12),
-                label('Data'),
-                BrutalBox(
-                  offset: const Offset(3, 4),
+                label('Reading'),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Night reading'),
+                  subtitle: const Text('Invert page colours in the reader'),
+                  value: store.nightReading,
+                  onChanged: (v) => store.nightReading = v,
+                ),
+                label('Library'),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.delete_outline_rounded,
+                    color: scheme.error,
+                  ),
+                  title: Text(
+                    'Delete the whole library',
+                    style: TextStyle(color: scheme.error),
+                  ),
+                  subtitle: const Text(
+                    'Documents are stored privately on this device',
+                  ),
                   onTap: () => _clear(context),
-                  child: ListTile(
-                    leading: Icon(
-                      Icons.delete_outline_rounded,
-                      color: scheme.error,
-                    ),
-                    title: Text(
-                      'Delete all saved links',
-                      style: text.titleSmall?.copyWith(color: scheme.error),
-                    ),
-                    subtitle: const Text('Everything is stored on this device'),
-                  ),
                 ),
-                const SizedBox(height: 12),
                 label('About'),
-                BrutalBox(
-                  offset: const Offset(3, 4),
-                  child: ListTile(
-                    leading: const Icon(Icons.bookmark_border_rounded),
-                    title: Text('Semesta', style: text.titleSmall),
-                    subtitle: const Text('Save now. Find anytime. · v0.1.0'),
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.auto_stories_outlined),
+                  title: Text('Semesta'),
+                  subtitle: Text(
+                    'Read. Organize. Understand. Progress. · v0.2.0',
                   ),
                 ),
               ],

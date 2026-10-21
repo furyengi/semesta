@@ -109,7 +109,6 @@ class BrutalBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final interactive = onTap != null || onLongPress != null;
     Widget content = padding == null
         ? child
@@ -122,7 +121,7 @@ class BrutalBox extends StatelessWidget {
       offset: offset,
       pressable: interactive,
       child: Material(
-        color: color ?? scheme.surfaceContainerLowest,
+        color: color ?? BrutalTheme.of(context).card,
         shape: brutalShape(context, radius),
         clipBehavior: Clip.antiAlias,
         child: content,

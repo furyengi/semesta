@@ -2,14 +2,10 @@ import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 
 import '../data/models.dart';
-import '../data/store.dart';
 import '../data/store_scope.dart';
-import '../widgets/brutal.dart';
-import '../widgets/folder_card.dart';
-import '../widgets/helpers.dart';
-import '../widgets/link_tile.dart';
-import 'collection_screen.dart';
-import 'home_screen.dart' show contentGutter;
+import '../widgets/doc_card.dart' show progressLabel;
+import '../widgets/doc_cover.dart';
+import '../screens/reader_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -30,44 +26,37 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final store = StoreScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final gutter = contentGutter(context);
+    final query = _controller.text;
+    final empty = query.trim().isEmpty;
+    final results = empty
+        ? store.docsSorted().take(8).toList()
+        : store.search(query);
+    final mode = empty ? 'recent' : (results.isEmpty ? 'none' : 'results');
 
     return Scaffold(
-      backgroundColor: scheme.surface,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(gutter, 8, gutter + 4, 16),
+              padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
               child: Row(
                 children: [
-                  BrutalIconButton(
-                    icon: Icons.arrow_back_rounded,
-                    tooltip: 'Back',
-                    onPressed: () => Navigator.maybePop(context),
-                  ),
-                  const SizedBox(width: 14),
+                  const BackButton(),
                   Expanded(
-                    child: BrutalShadow(
-                      pressable: false,
-                      child: TextField(
-                        controller: _controller,
-                        autofocus: true,
-                        textInputAction: TextInputAction.search,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: 'Search links & collections',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _controller.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'Clear',
-                                  icon: const Icon(Icons.close_rounded),
-                                  onPressed: () => setState(_controller.clear),
-                                ),
-                        ),
-                      ),
+                    child: SearchBar(
+                      controller: _controller,
+                      autoFocus: true,
+                      elevation: const WidgetStatePropertyAll(0),
+                      hintText: 'Search your library',
+                      onChanged: (_) => setState(() {}),
+                      trailing: [
+                        if (!empty)
+                          IconButton(
+                            tooltip: 'Clear',
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => setState(_controller.clear),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -84,9 +73,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: child,
                     ),
                 child: _Results(
-                  key: ValueKey(_modeFor(store, _controller.text)),
-                  query: _controller.text,
-                  gutter: gutter,
+                  key: ValueKey(mode),
+                  mode: mode,
+                  docs: results,
+                  query: query,
                 ),
               ),
             ),
@@ -95,31 +85,26 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
     );
   }
-
-  String _modeFor(AppStore store, String q) {
-    if (q.trim().isEmpty) return 'recent';
-    final hasAny =
-        store.searchLinks(q).isNotEmpty ||
-        store.searchCollections(q).isNotEmpty;
-    return hasAny ? 'results' : 'none';
-  }
 }
 
 class _Results extends StatelessWidget {
-  const _Results({super.key, required this.query, required this.gutter});
+  const _Results({
+    super.key,
+    required this.mode,
+    required this.docs,
+    required this.query,
+  });
 
+  final String mode;
+  final List<Doc> docs;
   final String query;
-  final double gutter;
 
   @override
   Widget build(BuildContext context) {
-    final store = StoreScope.of(context);
     final text = Theme.of(context).textTheme;
-    final empty = query.trim().isEmpty;
-    final links = empty ? store.recentLinks(8) : store.searchLinks(query);
-    final collections = empty ? <Collection>[] : store.searchCollections(query);
+    final scheme = Theme.of(context).colorScheme;
 
-    if (!empty && links.isEmpty && collections.isEmpty) {
+    if (mode == 'none') {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -131,7 +116,7 @@ class _Results extends StatelessWidget {
               Text('No matches', style: text.titleMedium),
               const SizedBox(height: 4),
               Text(
-                'Nothing saved matches "${query.trim()}".',
+                'Nothing in your library matches "${query.trim()}".',
                 textAlign: TextAlign.center,
               ),
             ],
@@ -141,56 +126,44 @@ class _Results extends StatelessWidget {
     }
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(gutter, 0, gutter + 4, 40),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       children: [
-        if (collections.isNotEmpty) ...[
-          Text('Collections', style: text.titleMedium),
-          const SizedBox(height: 12),
-          for (final c in collections)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: BrutalBox(
-                offset: const Offset(3, 4),
-                padding: const EdgeInsets.all(10),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => CollectionScreen(collectionId: c.id),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    CollectionTile(collection: c),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(c.name, style: text.titleSmall)),
-                    Text(
-                      plural(store.linkCount(c.id), 'link'),
-                      style: text.labelMedium,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          child: Text(
+            mode == 'recent' ? 'Recent' : 'Documents',
+            style: text.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ),
+        for (final d in docs)
+          ListTile(
+            key: ValueKey(d.id),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 4,
+            ),
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(width: 44, height: 60, child: DocCover(doc: d)),
+            ),
+            title: Text(d.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+            subtitle: Text('${d.category.label} · ${progressLabel(d)}'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => ReaderScreen(docId: d.id),
               ),
             ),
-          const SizedBox(height: 8),
-        ],
-        if (links.isNotEmpty) ...[
-          Text(empty ? 'Recently saved' : 'Links', style: text.titleMedium),
-          const SizedBox(height: 12),
-          for (final l in links)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: LinkTile(
-                key: ValueKey(l.id),
-                link: l,
-                showCollection: true,
-              ),
-            ),
-        ] else if (empty)
+          ),
+        if (mode == 'recent' && docs.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 48),
             child: Center(
-              child: Text('Saved links show up here.', style: text.bodyMedium),
+              child: Text(
+                'Your documents show up here.',
+                style: text.bodyMedium,
+              ),
             ),
           ),
       ],

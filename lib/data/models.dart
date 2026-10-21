@@ -2,153 +2,142 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Icons a collection can use, keyed by a stable string for persistence.
-abstract final class CollectionIcons {
-  static const Map<String, IconData> all = {
-    'folder': Icons.folder_outlined,
-    'bolt': Icons.bolt_rounded,
-    'book': Icons.menu_book_outlined,
-    'coffee': Icons.coffee_outlined,
-    'flight': Icons.flight_rounded,
-    'heart': Icons.favorite_border_rounded,
-    'star': Icons.star_border_rounded,
-    'movie': Icons.movie_outlined,
-    'music': Icons.music_note_rounded,
-    'code': Icons.code_rounded,
-    'shopping': Icons.shopping_bag_outlined,
-    'work': Icons.work_outline_rounded,
-  };
+/// What kind of material a document is. Used for filtering and as the
+/// accent colour when a cover isn't available.
+enum DocCategory {
+  textbook('Textbooks', Icons.menu_book_outlined, 7),
+  lecture('Lectures', Icons.school_outlined, 5),
+  novel('Novels', Icons.auto_stories_outlined, 6),
+  manhwa('Manhwa', Icons.collections_bookmark_outlined, 4),
+  notes('Notes', Icons.edit_note_rounded, 2),
+  other('Other', Icons.description_outlined, 0);
 
-  static IconData resolve(String key) => all[key] ?? Icons.folder_outlined;
-}
+  const DocCategory(this.label, this.icon, this._colorIndex);
 
-class Collection {
-  const Collection({
-    required this.id,
-    required this.name,
-    required this.colorIndex,
-    required this.iconKey,
-    required this.createdAt,
-    this.parentId,
-  });
+  final String label;
+  final IconData icon;
+  final int _colorIndex;
 
-  static const unsortedId = 'unsorted';
+  Color get color => AccentPalette.colors[_colorIndex];
 
-  final String id;
-  final String name;
-  final int colorIndex;
-  final String iconKey;
-  final DateTime createdAt;
-  final String? parentId;
-
-  bool get isUnsorted => id == unsortedId;
-  Color get color =>
-      CollectionPalette.colors[colorIndex % CollectionPalette.colors.length];
-  IconData get icon => CollectionIcons.resolve(iconKey);
-
-  /// Collections created in the last few days get a "NEW" badge.
-  bool get isNew =>
-      !isUnsorted && DateTime.now().difference(createdAt).inDays < 3;
-
-  Collection copyWith({String? name, int? colorIndex, String? iconKey}) =>
-      Collection(
-        id: id,
-        name: name ?? this.name,
-        colorIndex: colorIndex ?? this.colorIndex,
-        iconKey: iconKey ?? this.iconKey,
-        createdAt: createdAt,
-        parentId: parentId,
-      );
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'colorIndex': colorIndex,
-    'iconKey': iconKey,
-    'createdAt': createdAt.toIso8601String(),
-    'parentId': parentId,
-  };
-
-  factory Collection.fromJson(Map<String, dynamic> j) => Collection(
-    id: j['id'] as String,
-    name: j['name'] as String,
-    colorIndex: j['colorIndex'] as int,
-    iconKey: j['iconKey'] as String,
-    createdAt: DateTime.parse(j['createdAt'] as String),
-    parentId: j['parentId'] as String?,
+  static DocCategory byName(String? name) => DocCategory.values.firstWhere(
+    (c) => c.name == name,
+    orElse: () => DocCategory.other,
   );
 }
 
-class LinkItem {
-  const LinkItem({
+class Bookmark {
+  const Bookmark({required this.page, required this.createdAt});
+
+  /// 1-based page number.
+  final int page;
+  final DateTime createdAt;
+
+  Map<String, dynamic> toJson() => {
+    'page': page,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory Bookmark.fromJson(Map<String, dynamic> j) => Bookmark(
+    page: j['page'] as int,
+    createdAt: DateTime.parse(j['createdAt'] as String),
+  );
+}
+
+/// A document in the library. The file itself lives in [DocStorage] under
+/// [storageKey]; this is the metadata and reading state.
+class Doc {
+  const Doc({
     required this.id,
-    required this.url,
     required this.title,
-    required this.collectionId,
-    required this.createdAt,
+    required this.storageKey,
+    required this.category,
+    required this.addedAt,
+    this.pageCount = 0,
+    this.lastPage = 1,
+    this.lastOpenedAt,
+    this.bookmarks = const [],
   });
 
   final String id;
-  final String url;
   final String title;
-  final String collectionId;
-  final DateTime createdAt;
+  final String storageKey;
+  final DocCategory category;
+  final DateTime addedAt;
+  final int pageCount;
 
-  String get host {
-    final h = Uri.tryParse(url)?.host ?? url;
-    return h.startsWith('www.') ? h.substring(4) : h;
+  /// 1-based page the reader was last on.
+  final int lastPage;
+  final DateTime? lastOpenedAt;
+  final List<Bookmark> bookmarks;
+
+  bool get hasStarted => lastOpenedAt != null && lastPage > 1;
+  bool get finished => pageCount > 0 && lastPage >= pageCount;
+
+  /// Fraction read, 0..1.
+  double get progress {
+    if (pageCount <= 1) return finished ? 1 : 0;
+    return ((lastPage - 1) / (pageCount - 1)).clamp(0.0, 1.0);
   }
 
-  LinkItem copyWith({String? collectionId, String? title}) => LinkItem(
+  bool isBookmarked(int page) => bookmarks.any((b) => b.page == page);
+
+  Doc copyWith({
+    String? title,
+    DocCategory? category,
+    int? pageCount,
+    int? lastPage,
+    DateTime? lastOpenedAt,
+    List<Bookmark>? bookmarks,
+  }) => Doc(
     id: id,
-    url: url,
     title: title ?? this.title,
-    collectionId: collectionId ?? this.collectionId,
-    createdAt: createdAt,
+    storageKey: storageKey,
+    category: category ?? this.category,
+    addedAt: addedAt,
+    pageCount: pageCount ?? this.pageCount,
+    lastPage: lastPage ?? this.lastPage,
+    lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
+    bookmarks: bookmarks ?? this.bookmarks,
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'url': url,
     'title': title,
-    'collectionId': collectionId,
-    'createdAt': createdAt.toIso8601String(),
+    'storageKey': storageKey,
+    'category': category.name,
+    'addedAt': addedAt.toIso8601String(),
+    'pageCount': pageCount,
+    'lastPage': lastPage,
+    'lastOpenedAt': lastOpenedAt?.toIso8601String(),
+    'bookmarks': bookmarks.map((b) => b.toJson()).toList(),
   };
 
-  factory LinkItem.fromJson(Map<String, dynamic> j) => LinkItem(
+  factory Doc.fromJson(Map<String, dynamic> j) => Doc(
     id: j['id'] as String,
-    url: j['url'] as String,
     title: j['title'] as String,
-    collectionId: j['collectionId'] as String,
-    createdAt: DateTime.parse(j['createdAt'] as String),
+    storageKey: j['storageKey'] as String,
+    category: DocCategory.byName(j['category'] as String?),
+    addedAt: DateTime.parse(j['addedAt'] as String),
+    pageCount: (j['pageCount'] as int?) ?? 0,
+    lastPage: (j['lastPage'] as int?) ?? 1,
+    lastOpenedAt: j['lastOpenedAt'] == null
+        ? null
+        : DateTime.parse(j['lastOpenedAt'] as String),
+    bookmarks: [
+      for (final b in (j['bookmarks'] as List? ?? const []))
+        Bookmark.fromJson(b as Map<String, dynamic>),
+    ],
   );
 }
 
-/// Turns pasted text into a normalised http(s) URL, or null if it isn't one.
-String? normalizeUrl(String input) {
-  var s = input.trim();
-  if (s.isEmpty || s.contains(RegExp(r'\s'))) return null;
-  if (!s.contains('://')) s = 'https://$s';
-  final uri = Uri.tryParse(s);
-  if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https')) {
-    return null;
-  }
-  if (uri.host.isEmpty || !uri.host.contains('.')) return null;
-  return uri.toString();
-}
-
-/// Builds a readable title offline from the URL path ("Some post title"),
-/// falling back to the host when the path has nothing readable.
-String titleFromUrl(String url) {
-  final uri = Uri.parse(url);
-  final host = uri.host.startsWith('www.') ? uri.host.substring(4) : uri.host;
-  final segs = uri.pathSegments.where((s) => s.isNotEmpty).toList();
-  if (segs.isEmpty) return host;
-  var last = Uri.decodeComponent(segs.last)
-      .replaceAll(RegExp(r'\.[a-zA-Z0-9]{2,5}$'), '')
-      .replaceAll(RegExp(r'[-_+]+'), ' ')
+/// "intro_to-algorithms_v2.pdf" -> "Intro to algorithms v2".
+String titleFromFileName(String fileName) {
+  var s = fileName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '');
+  s = s
+      .replaceAll(RegExp(r'[_\-+]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
-  if (last.isEmpty) return host;
-  last = last[0].toUpperCase() + last.substring(1);
-  return last;
+  if (s.isEmpty) return 'Untitled';
+  return s[0].toUpperCase() + s.substring(1);
 }
