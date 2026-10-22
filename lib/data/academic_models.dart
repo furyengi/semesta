@@ -307,3 +307,233 @@ const weekdayLong = [
   'Saturday',
   'Sunday',
 ];
+
+// ---- study planning ---------------------------------------------------------
+
+/// What a study plan prepares for. Copies the date from the exam or
+/// assignment so the plan survives if that source is deleted.
+class StudyGoal {
+  const StudyGoal({
+    required this.id,
+    required this.title,
+    required this.target,
+    required this.createdAt,
+    required this.totalMinutes,
+    required this.sessionMinutes,
+    required this.weekdays,
+    required this.startMinute,
+    this.courseId,
+    this.sourceId,
+    this.docId,
+    this.firstPage,
+    this.lastPage,
+  });
+
+  final String id;
+  final String title;
+  final String? courseId;
+
+  /// When the exam or deadline happens.
+  final DateTime target;
+  final DateTime createdAt;
+
+  /// Id of the exam event or assignment this plan was made for, if any.
+  final String? sourceId;
+
+  /// Total study time the plan aims for, in minutes.
+  final int totalMinutes;
+  final int sessionMinutes;
+
+  /// Days of the week (1 = Monday) sessions may fall on.
+  final List<int> weekdays;
+
+  /// Preferred session start, as minutes after midnight.
+  final int startMinute;
+
+  /// Optional reading range to cover across the sessions.
+  final String? docId;
+  final int? firstPage;
+  final int? lastPage;
+
+  StudyGoal copyWith({
+    String? title,
+    DateTime? target,
+    int? totalMinutes,
+    int? sessionMinutes,
+    List<int>? weekdays,
+    int? startMinute,
+  }) => StudyGoal(
+    id: id,
+    title: title ?? this.title,
+    courseId: courseId,
+    target: target ?? this.target,
+    createdAt: createdAt,
+    sourceId: sourceId,
+    totalMinutes: totalMinutes ?? this.totalMinutes,
+    sessionMinutes: sessionMinutes ?? this.sessionMinutes,
+    weekdays: weekdays ?? this.weekdays,
+    startMinute: startMinute ?? this.startMinute,
+    docId: docId,
+    firstPage: firstPage,
+    lastPage: lastPage,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'courseId': courseId,
+    'target': target.toIso8601String(),
+    'createdAt': createdAt.toIso8601String(),
+    'sourceId': sourceId,
+    'totalMinutes': totalMinutes,
+    'sessionMinutes': sessionMinutes,
+    'weekdays': weekdays,
+    'startMinute': startMinute,
+    'docId': docId,
+    'firstPage': firstPage,
+    'lastPage': lastPage,
+  };
+
+  factory StudyGoal.fromJson(Map<String, dynamic> j) => StudyGoal(
+    id: j['id'] as String,
+    title: j['title'] as String,
+    courseId: j['courseId'] as String?,
+    target: DateTime.parse(j['target'] as String),
+    createdAt: DateTime.parse(j['createdAt'] as String),
+    sourceId: j['sourceId'] as String?,
+    totalMinutes: (j['totalMinutes'] as int?) ?? 60,
+    sessionMinutes: (j['sessionMinutes'] as int?) ?? 60,
+    weekdays: [
+      for (final d in (j['weekdays'] as List? ?? const [1, 2, 3, 4, 5]))
+        d as int,
+    ],
+    startMinute: (j['startMinute'] as int?) ?? 18 * 60,
+    docId: j['docId'] as String?,
+    firstPage: j['firstPage'] as int?,
+    lastPage: j['lastPage'] as int?,
+  );
+}
+
+/// One planned block of study time, tracked until it's done.
+class StudySession {
+  const StudySession({
+    required this.id,
+    required this.title,
+    required this.start,
+    required this.durationMin,
+    this.goalId,
+    this.courseId,
+    this.done = false,
+    this.link,
+    this.pageEnd,
+  });
+
+  final String id;
+  final String title;
+  final String? goalId;
+  final String? courseId;
+  final DateTime start;
+  final int durationMin;
+  final bool done;
+
+  /// Material to study; [MaterialLink.page] is where to start.
+  final MaterialLink? link;
+
+  /// Last page this session is meant to cover (with [link]'s page as first).
+  final int? pageEnd;
+
+  DateTime get end => start.add(Duration(minutes: durationMin));
+
+  StudySession copyWith({
+    String? title,
+    DateTime? start,
+    int? durationMin,
+    bool? done,
+    MaterialLink? link,
+    bool clearLink = false,
+  }) => StudySession(
+    id: id,
+    title: title ?? this.title,
+    goalId: goalId,
+    courseId: courseId,
+    start: start ?? this.start,
+    durationMin: durationMin ?? this.durationMin,
+    done: done ?? this.done,
+    link: clearLink ? null : (link ?? this.link),
+    pageEnd: clearLink ? null : pageEnd,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'goalId': goalId,
+    'courseId': courseId,
+    'start': start.toIso8601String(),
+    'durationMin': durationMin,
+    'done': done,
+    'link': link?.toJson(),
+    'pageEnd': pageEnd,
+  };
+
+  factory StudySession.fromJson(Map<String, dynamic> j) => StudySession(
+    id: j['id'] as String,
+    title: j['title'] as String,
+    goalId: j['goalId'] as String?,
+    courseId: j['courseId'] as String?,
+    start: DateTime.parse(j['start'] as String),
+    durationMin: (j['durationMin'] as int?) ?? 60,
+    done: (j['done'] as bool?) ?? false,
+    link: MaterialLink.fromJson(j['link']),
+    pageEnd: j['pageEnd'] as int?,
+  );
+}
+
+/// How a plan is going.
+enum PlanStatus {
+  /// Every session is done.
+  complete,
+
+  /// Some past session hasn't been done.
+  behind,
+
+  /// Nothing overdue.
+  onTrack,
+
+  /// The target date has passed.
+  past,
+}
+
+/// An exam or deadline that could use a plan.
+class PlanTarget {
+  const PlanTarget({
+    required this.title,
+    required this.date,
+    required this.isExam,
+    this.courseId,
+    this.sourceId,
+  });
+
+  final String title;
+  final DateTime date;
+  final bool isExam;
+  final String? courseId;
+  final String? sourceId;
+}
+
+/// Summary numbers for a plan.
+class PlanProgress {
+  const PlanProgress({
+    required this.doneMinutes,
+    required this.plannedMinutes,
+    required this.doneCount,
+    required this.count,
+  });
+
+  final int doneMinutes;
+  final int plannedMinutes;
+  final int doneCount;
+  final int count;
+
+  double get fraction =>
+      plannedMinutes == 0 ? 0 : (doneMinutes / plannedMinutes).clamp(0.0, 1.0);
+}

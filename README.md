@@ -13,9 +13,9 @@ Reading comes first. The calendar and planner exist to support it.
 | Area | State |
 | --- | --- |
 | Library and PDF reader | Done |
-| Course Spaces | **Done (this release)** |
-| Calendar and timetable | **Done (this release)** |
-| Study planner | Planned |
+| Course Spaces | Done |
+| Calendar and timetable | Done |
+| Study planner | **Done (this release)** |
 | Reminders and home-screen widgets | Planned (need native Android code) |
 
 ### Library and reader
@@ -43,6 +43,23 @@ Reading comes first. The calendar and planner exist to support it.
 - Deadlines from assignments show on their due day.
 - **Events link to material**: a lecture can open the exact PDF page, from the
   calendar, the course space, or the *Next up* card on the Library tab.
+
+### Study planner
+
+- Make a plan for an exam, an assignment, or anything with a date: pick the
+  date, how many hours, session length, which weekdays and a start time.
+- Semesta spreads the sessions **evenly** over the days before the date and
+  moves them off anything already scheduled (classes, exams, other plans).
+- Optionally give it a reading range (a document and pages): each session gets
+  its own share and links straight to its first page.
+- The **Plan** tab shows this week's progress, what **needs attention**
+  (missed sessions, exams and deadlines with no plan yet), today's sessions
+  and every plan with an *on track / behind* status.
+- Tick sessions off, move them to today or tomorrow, reschedule or delete
+  them (with undo), add your own, or **re-plan what's left** after a missed
+  day; finished sessions and the pages already covered are kept.
+- Sessions also appear in the Day, Week and Month calendar views and in the
+  Library's *Next up* card.
 
 ## Design
 

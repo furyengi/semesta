@@ -90,6 +90,32 @@ void seedDemoSemester(LibraryStore store) {
     link: link(4),
   );
 
+  final midterm = store.events.firstWhere(
+    (e) => e.title == 'Algorithms midterm',
+  );
+  store.createPlan(
+    title: 'Algorithms midterm',
+    target: midterm.start,
+    totalMinutes: 4 * 60,
+    sessionMinutes: 60,
+    weekdays: {1, 2, 3, 4, 5, 7},
+    startMinute: 18 * 60,
+    courseId: algo.id,
+    sourceId: midterm.id,
+    docId: doc?.id,
+    firstPage: doc == null ? null : 1,
+    lastPage: doc == null ? null : 4,
+  );
+  store.createPlan(
+    title: 'Chemistry lab prep',
+    target: at(10, 9),
+    totalMinutes: 3 * 60,
+    sessionMinutes: 45,
+    weekdays: {2, 4, 6},
+    startMinute: 17 * 60 + 30,
+    courseId: chem.id,
+  );
+
   DateTime due(int days, [int h = 23, int m = 59]) {
     final d = addDays(dateOnly(now), days);
     return DateTime(d.year, d.month, d.day, h, m);

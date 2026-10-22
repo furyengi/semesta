@@ -169,7 +169,7 @@ class SettingsScreen extends StatelessWidget {
                   leading: Icon(Icons.auto_stories_outlined),
                   title: Text('Semesta'),
                   subtitle: Text(
-                    'Read. Organize. Understand. Progress. · v0.3.0',
+                    'Read. Organize. Understand. Progress. · v0.4.0',
                   ),
                 ),
               ],

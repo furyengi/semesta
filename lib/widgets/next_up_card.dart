@@ -22,7 +22,11 @@ class NextUpCard extends StatelessWidget {
     final due = store.openAssignmentsFrom(now, count: 1).firstOrNull;
     final dueSoon =
         due != null && due.due.difference(now) < const Duration(days: 3);
-    if (!soon && !dueSoon) return const SizedBox.shrink();
+    final study = store
+        .sessionsOn(now)
+        .where((s) => !s.done && s.end.isAfter(now))
+        .toList();
+    if (!soon && !dueSoon && study.isEmpty) return const SizedBox.shrink();
 
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
@@ -117,7 +121,35 @@ class NextUpCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (soon) content,
-              if (soon && dueSoon) const Divider(height: 24),
+              if (soon && (study.isNotEmpty || dueSoon))
+                const Divider(height: 24),
+              if (study.isNotEmpty)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.menu_book_outlined,
+                      size: 20,
+                      color: scheme.secondary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${study.length} study ${study.length == 1 ? 'session' : 'sessions'} today · '
+                        'next ${formatTime(context, study.first.start)}',
+                        style: text.bodyMedium,
+                      ),
+                    ),
+                    if (study.first.link != null)
+                      IconButton(
+                        tooltip:
+                            'Open ${materialLabel(store, study.first.link) ?? 'material'}',
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        onPressed: () =>
+                            openMaterial(context, study.first.link!),
+                      ),
+                  ],
+                ),
+              if (study.isNotEmpty && dueSoon) const Divider(height: 24),
               if (dueSoon)
                 Row(
                   children: [

@@ -7,7 +7,9 @@ import '../theme/motion.dart';
 import '../widgets/brutal.dart';
 import '../widgets/event_sheets.dart';
 import '../widgets/format.dart';
+import '../widgets/plan_sheets.dart';
 import '../widgets/schedule_tiles.dart';
+import '../widgets/study_tiles.dart';
 import 'home_screen.dart' show contentGutter;
 
 enum CalendarView { day, week, month }
@@ -255,7 +257,13 @@ class _DayViewState extends State<DayView> {
     final text = Theme.of(context).textTheme;
     final occ = store.occurrencesOn(widget.day);
     final due = store.assignmentsDueOn(widget.day);
-    final lanes = _layout(occ);
+    final sessions = store.sessionsOn(widget.day);
+    final lanes = _layout([
+      for (final o in occ)
+        _Slot(o.start, o.end, o.event.durationMin, _EventBlock(occurrence: o)),
+      for (final x in sessions)
+        _Slot(x.start, x.end, x.durationMin, _SessionBlock(session: x)),
+    ]);
     final now = DateTime.now();
     final showNow = sameDay(widget.day, now);
 
@@ -319,17 +327,16 @@ class _DayViewState extends State<DayView> {
                       for (final l in lanes)
                         Positioned(
                           top:
-                              l.occurrence.start.hour * _hourHeight +
-                              l.occurrence.start.minute / 60 * _hourHeight,
-                          height:
-                              (l.occurrence.event.durationMin /
-                                      60 *
-                                      _hourHeight)
-                                  .clamp(34.0, 24 * _hourHeight),
+                              l.slot.start.hour * _hourHeight +
+                              l.slot.start.minute / 60 * _hourHeight,
+                          height: (l.slot.minutes / 60 * _hourHeight).clamp(
+                            34.0,
+                            24 * _hourHeight,
+                          ),
                           left:
                               _timeGutter + 6 + l.lane * (width - 6) / l.lanes,
                           width: (width - 6) / l.lanes - 4,
-                          child: _EventBlock(occurrence: l.occurrence),
+                          child: l.slot.block,
                         ),
                       if (showNow)
                         Positioned(
@@ -369,19 +376,30 @@ class _DayViewState extends State<DayView> {
   }
 }
 
-class _Placed {
-  _Placed(this.occurrence, this.lane);
+/// Something drawn on the day timeline: a class or a study session.
+class _Slot {
+  const _Slot(this.start, this.end, this.minutes, this.block);
 
-  final Occurrence occurrence;
+  final DateTime start;
+  final DateTime end;
+  final int minutes;
+  final Widget block;
+}
+
+class _Placed {
+  _Placed(this.slot, this.lane);
+
+  final _Slot slot;
   final int lane;
   int lanes = 1;
 }
 
-/// Places overlapping events side by side.
-List<_Placed> _layout(List<Occurrence> occ) {
+/// Places overlapping items side by side.
+List<_Placed> _layout(List<_Slot> slots) {
+  final sorted = [...slots]..sort((a, b) => a.start.compareTo(b.start));
   final placed = <_Placed>[];
   final laneEnds = <DateTime>[];
-  for (final o in occ) {
+  for (final o in sorted) {
     var lane = laneEnds.indexWhere((end) => !end.isAfter(o.start));
     if (lane < 0) {
       lane = laneEnds.length;
@@ -395,13 +413,85 @@ List<_Placed> _layout(List<Occurrence> occ) {
     var maxLane = p.lane;
     for (final q in placed) {
       final overlap =
-          q.occurrence.start.isBefore(p.occurrence.end) &&
-          p.occurrence.start.isBefore(q.occurrence.end);
+          q.slot.start.isBefore(p.slot.end) &&
+          p.slot.start.isBefore(q.slot.end);
       if (overlap && q.lane > maxLane) maxLane = q.lane;
     }
     p.lanes = maxLane + 1;
   }
   return placed;
+}
+
+/// A planned study session on the day timeline.
+class _SessionBlock extends StatelessWidget {
+  const _SessionBlock({required this.session});
+
+  final StudySession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final s = session;
+    return Semantics(
+      button: true,
+      label:
+          'Study session, ${s.title}, ${formatTimeRange(context, s.start, s.end)}${s.done ? ', done' : ''}',
+      excludeSemantics: true,
+      child: Material(
+        color: scheme.secondaryContainer.withValues(alpha: s.done ? .45 : .9),
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => showSessionEditor(context, existing: s),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 6, 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1, right: 6),
+                  child: Icon(
+                    s.done
+                        ? Icons.check_circle_rounded
+                        : Icons.menu_book_outlined,
+                    size: 16,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s.title,
+                        style: text.labelLarge?.copyWith(
+                          color: scheme.onSecondaryContainer,
+                          decoration: s.done
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        formatTimeRange(context, s.start, s.end),
+                        style: text.labelSmall?.copyWith(
+                          color: scheme.onSecondaryContainer,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _EventBlock extends StatelessWidget {
@@ -489,6 +579,7 @@ class WeekView extends StatelessWidget {
               final d = addDays(monday, i);
               final occ = store.occurrencesOn(d);
               final due = store.assignmentsDueOn(d);
+              final study = store.sessionsOn(d);
               final isToday = sameDay(d, today);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14),
@@ -529,7 +620,7 @@ class WeekView extends StatelessWidget {
                               ),
                             ),
                             const Spacer(),
-                            if (occ.isEmpty && due.isEmpty)
+                            if (occ.isEmpty && due.isEmpty && study.isEmpty)
                               Text(
                                 'Free',
                                 style: text.labelMedium?.copyWith(
@@ -544,6 +635,11 @@ class WeekView extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Reveal(child: OccurrenceTile(occurrence: o)),
+                      ),
+                    for (final x in study)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: SessionTile(session: x),
                       ),
                     for (final a in due)
                       Padding(
@@ -585,6 +681,7 @@ class MonthView extends StatelessWidget {
     final today = dateOnly(DateTime.now());
     final occ = store.occurrencesOn(day);
     final due = store.assignmentsDueOn(day);
+    final study = store.sessionsOn(day);
 
     Widget cell(DateTime d) {
       final inMonth = d.month == day.month;
@@ -596,6 +693,7 @@ class MonthView extends StatelessWidget {
         if (!colors.contains(c)) colors.add(c);
       }
       if (store.assignmentsDueOn(d).isNotEmpty) colors.add(scheme.tertiary);
+      if (store.sessionsOn(d).isNotEmpty) colors.add(scheme.secondary);
       return Semantics(
         button: true,
         selected: selected,
@@ -699,7 +797,7 @@ class MonthView extends StatelessWidget {
           style: text.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 10),
-        if (occ.isEmpty && due.isEmpty)
+        if (occ.isEmpty && due.isEmpty && study.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Center(
@@ -710,6 +808,11 @@ class MonthView extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: OccurrenceTile(occurrence: o),
+          ),
+        for (final x in study)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SessionTile(session: x),
           ),
         for (final a in due)
           Padding(

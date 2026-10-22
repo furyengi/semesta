@@ -10,6 +10,7 @@ import '../widgets/import_flow.dart';
 import 'calendar_tab.dart';
 import 'courses_tab.dart';
 import 'home_screen.dart';
+import 'planner_tab.dart';
 
 /// Bottom navigation between Library, Courses and Calendar. Tabs stay alive
 /// (scroll position, filters) and cross-fade.
@@ -87,6 +88,13 @@ class _AppShellState extends State<AppShell> {
         'Add course',
         () => showCourseEditor(context),
       ),
+      3 => FloatingActionButton.extended(
+        key: const ValueKey('New plan'),
+        onPressed: () => startNewPlan(context),
+        isExtended: _fabExtended,
+        icon: const Icon(Icons.auto_awesome_rounded),
+        label: const Text('New plan'),
+      ),
       _ => FloatingActionButton.extended(
         key: const ValueKey('Add event'),
         onPressed: () => showEventEditor(context, day: _calendarDay.value),
@@ -118,6 +126,7 @@ class _AppShellState extends State<AppShell> {
                 active: _index == 2,
                 child: CalendarTab(selectedDay: _calendarDay),
               ),
+              _TabSlot(active: _index == 3, child: const PlannerTab()),
             ],
           ),
         ),
@@ -149,6 +158,11 @@ class _AppShellState extends State<AppShell> {
               icon: Icon(Icons.calendar_month_outlined),
               selectedIcon: Icon(Icons.calendar_month_rounded),
               label: 'Calendar',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.event_available_outlined),
+              selectedIcon: Icon(Icons.event_available_rounded),
+              label: 'Plan',
             ),
           ],
         ),
