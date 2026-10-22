@@ -17,7 +17,7 @@ Reading comes first. The calendar and planner exist to support it.
 | Calendar and timetable | Done |
 | Study planner | **Done (this release)** |
 | Reminders | **Done (this release)**, Android only; not yet run on a device |
-| Home-screen widgets | Planned (needs native Android code) |
+| Home-screen widgets | **Done (this release)**, Android only; not yet run on a device |
 
 ### Library and reader
 
@@ -77,6 +77,30 @@ Reading comes first. The calendar and planner exist to support it.
 - They use inexact alarms (no special permission), so they can arrive a few
   minutes late when the phone is saving battery.
 - Android only for now. Elsewhere Settings says reminders aren't available.
+
+### Home-screen widgets
+
+Four Android widgets (light and dark follow the system):
+
+| Widget | Shows | Tap |
+| --- | --- | --- |
+| **Next up** | your next class or exam, switching to "Happening now" while it runs | its linked PDF page, else the calendar |
+| **Today** | today's classes, study sessions and deadlines (past ones fade) | the item, else the calendar |
+| **Deadlines** | your next four open assignments (overdue ones in red) | the assignment's material, else Courses |
+| **Continue reading** | the document you were reading, with progress | that document at your page |
+
+- Add them from the launcher's widget picker, or from Settings > Home screen
+  widgets, which also previews what each widget shows right now.
+- Widgets can't run Dart and the app may not be opened for hours, so the app
+  publishes a short *timeline* (upcoming entries with start and end times)
+  and the widget picks whichever entry is current each time it redraws
+  (at least every 30 minutes, and whenever the app syncs). All text uses
+  absolute dates and times so it never goes stale.
+- Data is refreshed whenever your classes, sessions, deadlines or reading
+  change, and when you reopen the app.
+- Implementation: a small method channel (`WidgetChannel.kt`) stores the data
+  in SharedPreferences and redraws; each widget is an `AppWidgetProvider`
+  (`SemestaWidgets.kt`) with a RemoteViews layout in `res/layout`.
 
 ## Design
 

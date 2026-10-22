@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_next_up_name">Semesta: Next up</string>
+    <string name="widget_next_up_description">Your next class or exam, with a tap into its material.</string>
+    <string name="widget_today_name">Semesta: Today</string>
+    <string name="widget_today_description">Classes, study sessions and deadlines for today.</string>
+    <string name="widget_deadlines_name">Semesta: Deadlines</string>
+    <string name="widget_deadlines_description">Your next assignment deadlines.</string>
+    <string name="widget_continue_name">Semesta: Continue reading</string>
+    <string name="widget_continue_description">Jump back into what you were reading.</string>
+
+    <string name="widget_header_next_up">NEXT UP</string>
+    <string name="widget_header_now">HAPPENING NOW</string>
+    <string name="widget_header_today">TODAY</string>
+    <string name="widget_header_deadlines">DEADLINES</string>
+    <string name="widget_header_continue">CONTINUE READING</string>
+
+    <string name="widget_empty_next_up">Nothing coming up. Tap to open your calendar.</string>
+    <string name="widget_empty_today">Nothing planned today.</string>
+    <string name="widget_empty_deadlines">No deadlines. Nice.</string>
+    <string name="widget_empty_continue">Nothing to continue yet. Open a document to start reading.</string>
+    <string name="widget_error">Open Semesta to refresh this widget.</string>
+    <string name="widget_more">+%1$d more</string>
+    <string name="widget_overdue">Overdue · %1$s</string>
+</resources>

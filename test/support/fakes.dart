@@ -7,6 +7,9 @@ import 'package:semesta/core/doc_storage.dart';
 import 'package:semesta/core/library_service.dart';
 import 'package:semesta/core/notifier.dart';
 import 'package:semesta/core/reminder_service.dart';
+import 'package:semesta/core/widget_backend.dart';
+import 'package:semesta/core/widget_service.dart';
+import 'package:semesta/data/widget_data.dart';
 import 'package:semesta/data/reminder_planner.dart';
 import 'package:semesta/core/pdf_backend.dart';
 import 'package:semesta/core/services.dart';
@@ -113,6 +116,8 @@ class TestEnv {
     this.library,
     this.notifier,
     this.reminders,
+    this.widgetBackend,
+    this.widgets,
   );
 
   final LibraryStore store;
@@ -121,12 +126,15 @@ class TestEnv {
   final LibraryService library;
   final FakeNotifier notifier;
   final ReminderService reminders;
+  final FakeWidgetBackend widgetBackend;
+  final WidgetService widgets;
 
   Services get services => Services(
     library: library,
     storage: storage,
     backend: backend,
     reminders: reminders,
+    widgets: widgets,
   );
 
   static Future<TestEnv> create({int pages = 12}) async {
@@ -146,7 +154,23 @@ class TestEnv {
       debounce: const Duration(milliseconds: 50),
       use24h: () => false,
     );
-    return TestEnv(store, storage, backend, library, notifier, reminders);
+    final widgetBackend = FakeWidgetBackend();
+    final widgets = WidgetService(
+      store: store,
+      backend: widgetBackend,
+      debounce: const Duration(milliseconds: 50),
+      use24h: () => false,
+    );
+    return TestEnv(
+      store,
+      storage,
+      backend,
+      library,
+      notifier,
+      reminders,
+      widgetBackend,
+      widgets,
+    );
   }
 
   Future<void> addDoc(String fileName, {int pages = 12}) => library.importFiles(
@@ -163,6 +187,7 @@ Future<TestEnv> pumpApp(
   /// doesn't push content around).
   bool reminderPrompt = false,
   bool startReminders = false,
+  bool startWidgets = false,
 }) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 3;
@@ -171,6 +196,7 @@ Future<TestEnv> pumpApp(
   if (!reminderPrompt) e.store.dismissReminderPrompt();
   if (setup != null) await setup(e);
   if (startReminders) await e.reminders.start();
+  if (startWidgets) await e.widgets.start();
   await tester.pumpWidget(
     SemestaApp(
       store: e.store,
@@ -233,6 +259,49 @@ class FakeNotifier implements Notifier {
     required String body,
     String? payload,
   }) async => shown.add((title: title, body: body, payload: payload));
+
+  @override
+  Stream<String> get taps => _taps.stream;
+
+  @override
+  Future<String?> takeLaunchPayload() async {
+    final p = launch;
+    launch = null;
+    return p;
+  }
+}
+
+/// Records what the widgets would be given, and lets tests tap them.
+class FakeWidgetBackend implements WidgetBackend {
+  FakeWidgetBackend({this.supported = true, this.pinSupported = true});
+
+  @override
+  bool supported;
+
+  bool pinSupported;
+  Map<String, String> published = const {};
+  int publishCalls = 0;
+  final pinned = <WidgetKind>[];
+  String? launch;
+  final _taps = StreamController<String>.broadcast();
+
+  void tap(String payload) => _taps.add(payload);
+
+  @override
+  Future<void> publish(Map<String, String> data) async {
+    publishCalls++;
+    published = data;
+  }
+
+  @override
+  Future<bool> canPin() async => pinSupported;
+
+  @override
+  Future<bool> pin(WidgetKind kind) async {
+    if (!pinSupported) return false;
+    pinned.add(kind);
+    return true;
+  }
 
   @override
   Stream<String> get taps => _taps.stream;

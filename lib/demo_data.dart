@@ -1,4 +1,6 @@
 import 'core/notifier.dart';
+import 'core/widget_backend.dart';
+import 'data/widget_data.dart';
 import 'data/academic_models.dart';
 import 'data/reminder_planner.dart';
 import 'data/library_store.dart';
@@ -160,4 +162,17 @@ class DemoNotifier extends NoopNotifier {
 
   @override
   Future<void> replaceAll(List<ReminderSpec> specs) async {}
+}
+
+/// Stands in for home-screen widgets in demo builds on platforms that have
+/// none, so the widget settings and previews can be tried.
+class DemoWidgetBackend extends NoopWidgetBackend {
+  @override
+  bool get supported => true;
+
+  @override
+  Future<bool> canPin() async => true;
+
+  @override
+  Future<bool> pin(WidgetKind kind) async => true;
 }

@@ -10,8 +10,11 @@ import 'core/library_service.dart';
 import 'core/notifier.dart';
 import 'core/reminder_service.dart';
 import 'core/services.dart';
+import 'core/widget_backend.dart';
+import 'core/widget_service.dart';
 import 'data/library_store.dart';
 import 'demo_data.dart';
+import 'platform/channel_widget_backend.dart';
 import 'platform/io_doc_storage.dart';
 import 'platform/local_notifier.dart';
 import 'platform/pdfrx_backend.dart';
@@ -44,6 +47,13 @@ Future<void> main() async {
   final reminders = ReminderService(store: store, notifier: notifier);
   await reminders.start();
 
+  final isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  final WidgetBackend widgetBackend = isAndroid
+      ? ChannelWidgetBackend()
+      : (kDemoData ? DemoWidgetBackend() : NoopWidgetBackend());
+  final widgets = WidgetService(store: store, backend: widgetBackend);
+  await widgets.start();
+
   runApp(
     SemestaApp(
       store: store,
@@ -52,6 +62,7 @@ Future<void> main() async {
         storage: storage,
         backend: backend,
         reminders: reminders,
+        widgets: widgets,
       ),
     ),
   );

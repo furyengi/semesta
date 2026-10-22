@@ -33,6 +33,7 @@ class _AppShellState extends State<AppShell> {
   final _calendarDay = ValueNotifier<DateTime>(dateOnly(DateTime.now()));
 
   StreamSubscription<String>? _taps;
+  StreamSubscription<String>? _widgetTaps;
   bool _listening = false;
 
   @override
@@ -40,16 +41,21 @@ class _AppShellState extends State<AppShell> {
     super.didChangeDependencies();
     if (_listening) return;
     _listening = true;
-    final reminders = ServicesScope.of(context).reminders;
-    _taps = reminders.taps.listen(_openFromReminder);
-    // The notification that started the app, if any.
-    reminders.takeLaunchPayload().then((p) {
-      if (p != null && mounted) _openFromReminder(p);
+    final services = ServicesScope.of(context);
+    // Taps on reminders and on home-screen widgets share one payload format.
+    _taps = services.reminders.taps.listen(_openFromPayload);
+    _widgetTaps = services.widgets.taps.listen(_openFromPayload);
+    // The notification or widget tap that started the app, if any.
+    services.reminders.takeLaunchPayload().then((p) {
+      if (p != null && mounted) _openFromPayload(p);
+    });
+    services.widgets.takeLaunchPayload().then((p) {
+      if (p != null && mounted) _openFromPayload(p);
     });
   }
 
-  /// Takes the user where a tapped reminder points.
-  void _openFromReminder(String payload) {
+  /// Takes the user where a tapped reminder or widget points.
+  void _openFromPayload(String payload) {
     final target = parseReminderPayload(payload);
     if (target == null || !mounted) return;
     Navigator.of(context).popUntil((r) => r.isFirst);
@@ -64,6 +70,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     _taps?.cancel();
+    _widgetTaps?.cancel();
     _importing.dispose();
     _calendarDay.dispose();
     super.dispose();

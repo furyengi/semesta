@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home-screen widget colours (day). Night values are in values-night. -->
+    <color name="widget_bg">#FFF6F1E7</color>
+    <color name="widget_stroke">#FF1B1A16</color>
+    <color name="widget_text">#FF1B1A16</color>
+    <color name="widget_dim">#FF6B665A</color>
+    <color name="widget_accent">#FF8A6A00</color>
+    <color name="widget_overdue">#FFC2185B</color>
+    <color name="widget_progress_track">#FFDDD5C2</color>
+</resources>

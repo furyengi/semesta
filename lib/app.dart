@@ -48,6 +48,7 @@ class _SemestaAppState extends State<SemestaApp> with WidgetsBindingObserver {
     // Roll the reminder window forward and pick up permission changes.
     if (state == AppLifecycleState.resumed) {
       widget.services.reminders.sync();
+      widget.services.widgets.sync();
     }
   }
 
