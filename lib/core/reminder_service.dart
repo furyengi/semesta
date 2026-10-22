@@ -110,7 +110,12 @@ class ReminderService extends ChangeNotifier {
   /// Asks for permission and, if granted, turns reminders on.
   Future<bool> enable() async {
     if (!supported) return false;
-    final granted = await notifier.requestPermission();
+    bool granted;
+    try {
+      granted = await notifier.requestPermission();
+    } catch (_) {
+      granted = false;
+    }
     _permission = granted;
     if (granted) {
       store.reminders = store.reminders.copyWith(enabled: true);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/services.dart';
 import '../data/store_scope.dart';
 import '../widgets/reminder_settings_section.dart';
+import '../widgets/startup_diagnostics.dart';
 import '../widgets/widget_settings_section.dart';
 import 'home_screen.dart' show contentGutter;
 
@@ -169,6 +170,7 @@ class SettingsScreen extends StatelessWidget {
                   subtitle: const Text('Documents stay in your library'),
                   onTap: () => _clearAcademic(context),
                 ),
+                const StartupDiagnostics(),
                 label('About'),
                 const ListTile(
                   contentPadding: EdgeInsets.zero,
