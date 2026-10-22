@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'core/services.dart';
 import 'data/library_store.dart';
 import 'data/store_scope.dart';
-import 'screens/home_screen.dart';
+import 'screens/app_shell.dart';
 import 'theme/app_theme.dart';
 import 'theme/motion.dart';
 
@@ -81,7 +81,7 @@ class _SemestaAppState extends State<SemestaApp> {
                   child: child!,
                 );
               },
-              home: const HomeScreen(),
+              home: const AppShell(),
             );
           },
         ),

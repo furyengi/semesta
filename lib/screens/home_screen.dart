@@ -1,6 +1,6 @@
 import 'package:animations/animations.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollDirection;
 
 import '../data/models.dart';
 import '../data/store_scope.dart';
@@ -8,7 +8,7 @@ import '../theme/brutal_theme.dart';
 import '../theme/motion.dart';
 import '../widgets/brutal.dart';
 import '../widgets/doc_card.dart';
-import '../widgets/import_flow.dart';
+import '../widgets/next_up_card.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 
@@ -28,24 +28,19 @@ int gridColumns(BuildContext context) {
   return 2;
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+/// The Library tab: continue reading, what's next, and the document grid.
+class LibraryTab extends StatefulWidget {
+  const LibraryTab({super.key, required this.importing});
+
+  /// True while a file import is running (driven by the shell's Add button).
+  final ValueListenable<bool> importing;
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<LibraryTab> createState() => _LibraryTabState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _LibraryTabState extends State<LibraryTab> {
   DocCategory? _filter;
-  bool _fabExtended = true;
-  bool _importing = false;
-
-  bool _onScroll(UserScrollNotification n) {
-    if (n.depth != 0) return false;
-    final extended = n.direction != ScrollDirection.reverse;
-    if (extended != _fabExtended) setState(() => _fabExtended = extended);
-    return false;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,154 +54,129 @@ class _HomeScreenState extends State<HomeScreen> {
     final docs = store.docsSorted(filter);
     final resume = store.continueReading;
 
-    return Scaffold(
-      floatingActionButton: BrutalShadow(
-        radius: 16,
-        offset: const Offset(3, 4),
-        child: FloatingActionButton.extended(
-          onPressed: _importing
-              ? null
-              : () => pickAndImport(
-                  context,
-                  onBusy: (b) {
-                    if (mounted) setState(() => _importing = b);
-                  },
-                ),
-          isExtended: _fabExtended,
-          backgroundColor: scheme.primary,
-          foregroundColor: scheme.onPrimary,
-          elevation: 0,
-          focusElevation: 0,
-          hoverElevation: 0,
-          highlightElevation: 0,
-          shape: brutalShape(context),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Add PDF'),
-        ),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: NotificationListener<UserScrollNotification>(
-          onNotification: _onScroll,
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(gutter, 8, gutter, 0),
-                sliver: SliverList.list(
+    return SafeArea(
+      bottom: false,
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(gutter, 8, gutter, 0),
+            sliver: SliverList.list(
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        BrutalIconButton(
-                          icon: Icons.settings_outlined,
-                          tooltip: 'Settings',
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const SettingsScreen(),
-                            ),
-                          ),
+                    BrutalIconButton(
+                      icon: Icons.settings_outlined,
+                      tooltip: 'Settings',
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SettingsScreen(),
                         ),
-                        const Spacer(),
-                        const _SearchButton(),
-                        const SizedBox(width: 4),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    AnimatedSwitcher(
-                      duration: Motion.of(context, Motion.medium2),
-                      layoutBuilder: (current, previous) => Stack(
-                        alignment: AlignmentDirectional.topStart,
-                        children: [...previous, ?current],
-                      ),
-                      child: Text(
-                        resume != null
-                            ? 'Pick up where\nyou left off.'
-                            : 'Read. Learn.\nProgress.',
-                        key: ValueKey(resume != null),
-                        style: text.displayMedium,
                       ),
                     ),
-                    AnimatedSize(
-                      duration: Motion.of(context, Motion.medium2),
-                      curve: Motion.emphasized,
-                      alignment: Alignment.topCenter,
-                      child: _importing
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const LinearProgressIndicator(),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Adding to your library…',
-                                    style: text.labelMedium,
-                                  ),
-                                ],
-                              ),
-                            )
-                          : const SizedBox(width: double.infinity),
-                    ),
-                    if (resume != null) ...[
-                      const SizedBox(height: 24),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Reveal(child: ContinueCard(doc: resume)),
-                      ),
-                    ],
-                    const SizedBox(height: 28),
-                    Row(
-                      children: [
-                        Text('Library', style: text.titleLarge),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${docs.length}',
-                          style: text.titleMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (used.length > 1) ...[
-                      const SizedBox(height: 12),
-                      _CategoryFilter(
-                        categories: used,
-                        selected: filter,
-                        onSelected: (c) => setState(() => _filter = c),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
+                    const Spacer(),
+                    const _SearchButton(),
+                    const SizedBox(width: 4),
                   ],
                 ),
-              ),
-              if (store.docs.isEmpty)
-                SliverToBoxAdapter(child: _EmptyLibrary(gutter: gutter))
-              else
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(gutter, 0, gutter + 4, 112),
-                  sliver: SliverGrid.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: gridColumns(context),
-                      mainAxisSpacing: 20,
-                      crossAxisSpacing: 18,
-                      mainAxisExtent: DocCard.extentFor(context),
-                    ),
-                    itemCount: docs.length,
-                    findChildIndexCallback: (key) {
-                      final id = (key as ValueKey<String>).value;
-                      final i = docs.indexWhere((d) => d.id == id);
-                      return i < 0 ? null : i;
-                    },
-                    itemBuilder: (context, i) => Reveal(
-                      key: ValueKey(docs[i].id),
-                      index: i,
-                      child: DocCard(doc: docs[i]),
-                    ),
+                const SizedBox(height: 24),
+                AnimatedSwitcher(
+                  duration: Motion.of(context, Motion.medium2),
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: AlignmentDirectional.topStart,
+                    children: [...previous, ?current],
+                  ),
+                  child: Text(
+                    resume != null
+                        ? 'Pick up where\nyou left off.'
+                        : 'Read. Learn.\nProgress.',
+                    key: ValueKey(resume != null),
+                    style: text.displayMedium,
                   ),
                 ),
-            ],
+                AnimatedSize(
+                  duration: Motion.of(context, Motion.medium2),
+                  curve: Motion.emphasized,
+                  alignment: Alignment.topCenter,
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: widget.importing,
+                    builder: (context, busy, _) => busy
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const LinearProgressIndicator(),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Adding to your library…',
+                                  style: text.labelMedium,
+                                ),
+                              ],
+                            ),
+                          )
+                        : const SizedBox(width: double.infinity),
+                  ),
+                ),
+                if (resume != null) ...[
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Reveal(child: ContinueCard(doc: resume)),
+                  ),
+                ],
+                const NextUpCard(),
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Text('Library', style: text.titleLarge),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${docs.length}',
+                      style: text.titleMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                if (used.length > 1) ...[
+                  const SizedBox(height: 12),
+                  _CategoryFilter(
+                    categories: used,
+                    selected: filter,
+                    onSelected: (c) => setState(() => _filter = c),
+                  ),
+                ],
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
-        ),
+          if (store.docs.isEmpty)
+            SliverToBoxAdapter(child: _EmptyLibrary(gutter: gutter))
+          else
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(gutter, 0, gutter + 4, 112),
+              sliver: SliverGrid.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: gridColumns(context),
+                  mainAxisSpacing: 20,
+                  crossAxisSpacing: 18,
+                  mainAxisExtent: DocCard.extentFor(context),
+                ),
+                itemCount: docs.length,
+                findChildIndexCallback: (key) {
+                  final id = (key as ValueKey<String>).value;
+                  final i = docs.indexWhere((d) => d.id == id);
+                  return i < 0 ? null : i;
+                },
+                itemBuilder: (context, i) => Reveal(
+                  key: ValueKey(docs[i].id),
+                  index: i,
+                  child: DocCard(doc: docs[i]),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

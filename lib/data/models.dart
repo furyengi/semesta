@@ -57,6 +57,7 @@ class Doc {
     this.lastPage = 1,
     this.lastOpenedAt,
     this.bookmarks = const [],
+    this.courseId,
   });
 
   final String id;
@@ -70,6 +71,9 @@ class Doc {
   final int lastPage;
   final DateTime? lastOpenedAt;
   final List<Bookmark> bookmarks;
+
+  /// The course this material belongs to, if any.
+  final String? courseId;
 
   bool get hasStarted => lastOpenedAt != null && lastPage > 1;
   bool get finished => pageCount > 0 && lastPage >= pageCount;
@@ -89,6 +93,8 @@ class Doc {
     int? lastPage,
     DateTime? lastOpenedAt,
     List<Bookmark>? bookmarks,
+    String? courseId,
+    bool clearCourse = false,
   }) => Doc(
     id: id,
     title: title ?? this.title,
@@ -99,6 +105,7 @@ class Doc {
     lastPage: lastPage ?? this.lastPage,
     lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
     bookmarks: bookmarks ?? this.bookmarks,
+    courseId: clearCourse ? null : (courseId ?? this.courseId),
   );
 
   Map<String, dynamic> toJson() => {
@@ -111,6 +118,7 @@ class Doc {
     'lastPage': lastPage,
     'lastOpenedAt': lastOpenedAt?.toIso8601String(),
     'bookmarks': bookmarks.map((b) => b.toJson()).toList(),
+    'courseId': courseId,
   };
 
   factory Doc.fromJson(Map<String, dynamic> j) => Doc(
@@ -128,6 +136,7 @@ class Doc {
       for (final b in (j['bookmarks'] as List? ?? const []))
         Bookmark.fromJson(b as Map<String, dynamic>),
     ],
+    courseId: j['courseId'] as String?,
   );
 }
 

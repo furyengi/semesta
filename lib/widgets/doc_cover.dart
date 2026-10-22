@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/pdf_backend.dart';
 import '../core/services.dart';
 import '../data/models.dart';
+import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 
 /// First-page thumbnail for a document, with a category-coloured placeholder
@@ -33,7 +34,7 @@ class _DocCoverState extends State<DocCover> {
             child: Icon(
               category.icon,
               size: 36,
-              color: AccentOn.of(category.color),
+              color: AccentPalette.on(category.color),
             ),
           ),
           FutureBuilder<DocSource?>(
@@ -61,12 +62,4 @@ class _DocCoverState extends State<DocCover> {
       ),
     );
   }
-}
-
-/// Black or white, whichever reads better on a given colour.
-abstract final class AccentOn {
-  static Color of(Color c) =>
-      ThemeData.estimateBrightnessForColor(c) == Brightness.dark
-      ? Colors.white
-      : const Color(0xFF111111);
 }

@@ -16,9 +16,12 @@ enum _ReaderMenu { bookmarks, goToPage, night, details }
 /// Full-screen reader. Tap the page to show or hide the controls; progress
 /// and the current page are saved as you read.
 class ReaderScreen extends StatefulWidget {
-  const ReaderScreen({super.key, required this.docId});
+  const ReaderScreen({super.key, required this.docId, this.initialPage});
 
   final String docId;
+
+  /// Open at this page instead of the saved position (e.g. from a lecture).
+  final int? initialPage;
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
@@ -55,8 +58,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _store = StoreScope.read(context);
     final store = _store;
     final doc = store.doc(widget.docId);
-    _page = doc?.lastPage ?? 1;
     _pageCount = doc?.pageCount ?? 0;
+    final wanted = widget.initialPage ?? doc?.lastPage ?? 1;
+    _page = _pageCount > 0 ? wanted.clamp(1, _pageCount) : wanted;
     if (doc != null) {
       // Notifying during build is not allowed, so do it right after.
       WidgetsBinding.instance.addPostFrameCallback(

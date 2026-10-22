@@ -39,6 +39,40 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _clearAcademic(BuildContext context) async {
+    final store = StoreScope.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.event_busy_outlined),
+        title: const Text('Delete courses and timetable?'),
+        content: const Text(
+          'All courses, classes, assignments and notes will be removed. '
+          'Your documents stay in the library.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      store.clearAcademicData();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Courses and timetable deleted')),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = StoreScope.of(context);
@@ -119,13 +153,23 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   onTap: () => _clear(context),
                 ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.event_busy_outlined, color: scheme.error),
+                  title: Text(
+                    'Delete courses and timetable',
+                    style: TextStyle(color: scheme.error),
+                  ),
+                  subtitle: const Text('Documents stay in your library'),
+                  onTap: () => _clearAcademic(context),
+                ),
                 label('About'),
                 const ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.auto_stories_outlined),
                   title: Text('Semesta'),
                   subtitle: Text(
-                    'Read. Organize. Understand. Progress. · v0.2.0',
+                    'Read. Organize. Understand. Progress. · v0.3.0',
                   ),
                 ),
               ],

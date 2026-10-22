@@ -4,16 +4,18 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'academic_data.dart';
 import 'models.dart';
 
 /// In-memory library state, persisted as JSON in shared preferences.
-class LibraryStore extends ChangeNotifier {
+class LibraryStore extends ChangeNotifier with AcademicData {
   LibraryStore._(this._prefs);
 
   static const _docsKey = 'semesta.library.v1';
   static const _themeKey = 'semesta.themeMode';
   static const _dynamicKey = 'semesta.dynamicColor';
   static const _nightKey = 'semesta.nightReading';
+  static const _academicKey = 'semesta.academic.v1';
   static const _seededKey = 'semesta.seeded';
 
   final SharedPreferences _prefs;
@@ -102,6 +104,10 @@ class LibraryStore extends ChangeNotifier {
     return best;
   }
 
+  /// Documents linked to [courseId], most recently opened first.
+  List<Doc> docsForCourse(String courseId) =>
+      docsSorted().where((d) => d.courseId == courseId).toList();
+
   /// Categories that have at least one document, in enum order.
   List<DocCategory> get usedCategories => [
     for (final c in DocCategory.values)
@@ -143,14 +149,35 @@ class LibraryStore extends ChangeNotifier {
     return d;
   }
 
-  void updateDoc(String id, {String? title, DocCategory? category}) {
+  void updateDoc(
+    String id, {
+    String? title,
+    DocCategory? category,
+    String? courseId,
+    bool clearCourse = false,
+  }) {
     _replace(
       id,
       (d) => d.copyWith(
         title: (title?.trim().isEmpty ?? true) ? null : title!.trim(),
         category: category,
+        courseId: courseId,
+        clearCourse: clearCourse,
       ),
     );
+  }
+
+  /// Links (or with a null [courseId], unlinks) a document to a course.
+  void setDocCourse(String docId, String? courseId) =>
+      updateDoc(docId, courseId: courseId, clearCourse: courseId == null);
+
+  @override
+  void onCourseRemoved(String courseId) {
+    for (var i = 0; i < _docs.length; i++) {
+      if (_docs[i].courseId == courseId) {
+        _docs[i] = _docs[i].copyWith(clearCourse: true);
+      }
+    }
   }
 
   /// Removes the document and returns it so the caller can delete its file.
@@ -168,6 +195,17 @@ class LibraryStore extends ChangeNotifier {
     _docs.clear();
     _commit();
     return removed;
+  }
+
+  /// Wipes courses, timetable and assignments. Documents stay, unlinked.
+  void clearAcademicData() {
+    clearAcademic();
+    for (var i = 0; i < _docs.length; i++) {
+      if (_docs[i].courseId != null) {
+        _docs[i] = _docs[i].copyWith(clearCourse: true);
+      }
+    }
+    _commit();
   }
 
   void markOpened(String id) =>
@@ -217,6 +255,9 @@ class LibraryStore extends ChangeNotifier {
   Timer? _saveTimer;
 
   /// Writes are coalesced so rapid page changes don't hammer storage.
+  @override
+  void commit() => _commit();
+
   void _commit() {
     notifyListeners();
     _saveTimer?.cancel();
@@ -231,6 +272,7 @@ class LibraryStore extends ChangeNotifier {
       _docsKey,
       jsonEncode({'docs': _docs.map((d) => d.toJson()).toList()}),
     );
+    await _prefs.setString(_academicKey, jsonEncode(academicToJson()));
   }
 
   @override
@@ -247,6 +289,15 @@ class LibraryStore extends ChangeNotifier {
     );
     _useDynamicColor = _prefs.getBool(_dynamicKey) ?? false;
     _nightReading = _prefs.getBool(_nightKey) ?? false;
+
+    final academic = _prefs.getString(_academicKey);
+    if (academic != null) {
+      try {
+        academicFromJson(jsonDecode(academic) as Map<String, dynamic>);
+      } catch (_) {
+        clearAcademic();
+      }
+    }
 
     final raw = _prefs.getString(_docsKey);
     if (raw == null) return;

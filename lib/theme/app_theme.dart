@@ -124,6 +124,34 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: scheme.surfaceContainer,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: scheme.primary,
+        height: 72,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (s) => IconThemeData(
+            color: s.contains(WidgetState.selected)
+                ? scheme.onPrimary
+                : scheme.onSurfaceVariant,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (s) => text.labelMedium?.copyWith(
+            fontWeight: s.contains(WidgetState.selected)
+                ? FontWeight.w800
+                : FontWeight.w600,
+            color: s.contains(WidgetState.selected)
+                ? scheme.onSurface
+                : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
+        extendedTextStyle: text.labelLarge,
+      ),
       bottomSheetTheme: const BottomSheetThemeData(
         showDragHandle: true,
         surfaceTintColor: Colors.transparent,

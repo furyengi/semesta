@@ -8,6 +8,7 @@ import 'core/doc_storage.dart';
 import 'core/library_service.dart';
 import 'core/services.dart';
 import 'data/library_store.dart';
+import 'demo_data.dart';
 import 'platform/io_doc_storage.dart';
 import 'platform/pdfrx_backend.dart';
 
@@ -28,6 +29,7 @@ Future<void> main() async {
   );
   await library.pruneMissing();
   await library.seedIfNeeded(whenEmpty: kIsWeb);
+  if (kDemoData) seedDemoSemester(store);
 
   runApp(
     SemestaApp(

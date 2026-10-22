@@ -14,8 +14,13 @@ Future<void> showDocEditor(BuildContext context, Doc doc) {
     useSafeArea: true,
     builder: (sheetContext) => _DocEditor(
       doc: doc,
-      onSave: (title, category) =>
-          store.updateDoc(doc.id, title: title, category: category),
+      onSave: (title, category, courseId) => store.updateDoc(
+        doc.id,
+        title: title,
+        category: category,
+        courseId: courseId,
+        clearCourse: courseId == null,
+      ),
       onDelete: () async {
         final ok = await showDialog<bool>(
           context: sheetContext,
@@ -55,7 +60,8 @@ class _DocEditor extends StatefulWidget {
   });
 
   final Doc doc;
-  final void Function(String title, DocCategory category) onSave;
+  final void Function(String title, DocCategory category, String? courseId)
+  onSave;
   final Future<void> Function() onDelete;
 
   @override
@@ -67,6 +73,7 @@ class _DocEditorState extends State<_DocEditor> {
     text: widget.doc.title,
   )..addListener(() => setState(() {}));
   late DocCategory _category = widget.doc.category;
+  late String? _courseId = widget.doc.courseId;
 
   @override
   void dispose() {
@@ -78,7 +85,7 @@ class _DocEditorState extends State<_DocEditor> {
 
   void _save() {
     if (!_valid) return;
-    widget.onSave(_title.text, _category);
+    widget.onSave(_title.text, _category, _courseId);
     Navigator.pop(context);
   }
 
@@ -115,6 +122,7 @@ class _DocEditorState extends State<_DocEditor> {
               children: [
                 for (final c in DocCategory.values)
                   ChoiceChip(
+                    showCheckmark: false,
                     avatar: Icon(c.icon, size: 18),
                     label: Text(c.label),
                     selected: _category == c,
@@ -122,6 +130,30 @@ class _DocEditorState extends State<_DocEditor> {
                   ),
               ],
             ),
+            if (StoreScope.of(context).courses.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Text('Course', style: text.labelLarge),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('None'),
+                    selected: _courseId == null,
+                    onSelected: (_) => setState(() => _courseId = null),
+                  ),
+                  for (final c in StoreScope.of(context).courses)
+                    ChoiceChip(
+                      showCheckmark: false,
+                      avatar: CircleAvatar(backgroundColor: c.color, radius: 7),
+                      label: Text(c.name),
+                      selected: _courseId == c.id,
+                      onSelected: (_) => setState(() => _courseId = c.id),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 24),
             Row(
               children: [
