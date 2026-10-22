@@ -49,6 +49,7 @@ Future<void> main() async {
     store = await LibraryStore.load().timeout(const Duration(seconds: 15));
   } catch (e, s) {
     log.problem('loading saved data', e, s);
+    log.note('ui shown');
     runApp(_StartupFailure(error: '$e'));
     return;
   }

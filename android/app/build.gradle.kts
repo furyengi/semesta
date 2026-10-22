@@ -37,6 +37,11 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 strips Kotlin-coroutine plugin methods (shared_preferences
+            // then fails with NoSuchMethodError and the app never starts), so
+            // the release build ships unminified.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
