@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/services.dart';
 import '../data/store_scope.dart';
+import '../widgets/reminder_settings_section.dart';
 import 'home_screen.dart' show contentGutter;
 
 class SettingsScreen extends StatelessWidget {
@@ -137,6 +138,8 @@ class SettingsScreen extends StatelessWidget {
                   value: store.nightReading,
                   onChanged: (v) => store.nightReading = v,
                 ),
+                label('Reminders'),
+                const ReminderSettingsSection(),
                 label('Library'),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -169,7 +172,7 @@ class SettingsScreen extends StatelessWidget {
                   leading: Icon(Icons.auto_stories_outlined),
                   title: Text('Semesta'),
                   subtitle: Text(
-                    'Read. Organize. Understand. Progress. · v0.4.0',
+                    'Read. Organize. Understand. Progress. · v0.5.0',
                   ),
                 ),
               ],

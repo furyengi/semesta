@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -6,10 +7,13 @@ import 'package:pdfrx/pdfrx.dart';
 import 'app.dart';
 import 'core/doc_storage.dart';
 import 'core/library_service.dart';
+import 'core/notifier.dart';
+import 'core/reminder_service.dart';
 import 'core/services.dart';
 import 'data/library_store.dart';
 import 'demo_data.dart';
 import 'platform/io_doc_storage.dart';
+import 'platform/local_notifier.dart';
 import 'platform/pdfrx_backend.dart';
 
 Future<void> main() async {
@@ -31,10 +35,24 @@ Future<void> main() async {
   await library.seedIfNeeded(whenEmpty: kIsWeb);
   if (kDemoData) seedDemoSemester(store);
 
+  // Scheduled notifications are set up for Android; elsewhere reminders are
+  // simply unavailable.
+  final Notifier notifier =
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+      ? LocalNotifier()
+      : (kDemoData ? DemoNotifier() : NoopNotifier());
+  final reminders = ReminderService(store: store, notifier: notifier);
+  await reminders.start();
+
   runApp(
     SemestaApp(
       store: store,
-      services: Services(library: library, storage: storage, backend: backend),
+      services: Services(
+        library: library,
+        storage: storage,
+        backend: backend,
+        reminders: reminders,
+      ),
     ),
   );
 }

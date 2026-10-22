@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'academic_data.dart';
 import 'models.dart';
+import 'reminder_settings.dart';
 
 /// In-memory library state, persisted as JSON in shared preferences.
 class LibraryStore extends ChangeNotifier with AcademicData {
@@ -16,6 +17,8 @@ class LibraryStore extends ChangeNotifier with AcademicData {
   static const _dynamicKey = 'semesta.dynamicColor';
   static const _nightKey = 'semesta.nightReading';
   static const _academicKey = 'semesta.academic.v1';
+  static const _remindersKey = 'semesta.reminders.v1';
+  static const _promptKey = 'semesta.reminderPromptDismissed';
   static const _seededKey = 'semesta.seeded';
 
   final SharedPreferences _prefs;
@@ -66,6 +69,25 @@ class LibraryStore extends ChangeNotifier with AcademicData {
   void _settingChanged() {
     settingsChanges.ping();
     notifyListeners();
+  }
+
+  ReminderSettings _reminders = const ReminderSettings();
+
+  ReminderSettings get reminders => _reminders;
+
+  set reminders(ReminderSettings v) {
+    if (v == _reminders) return;
+    _reminders = v;
+    _prefs.setString(_remindersKey, v.encode());
+    _settingChanged();
+  }
+
+  /// Whether the "turn on reminders" tip has been dismissed.
+  bool get reminderPromptDismissed => _prefs.getBool(_promptKey) ?? false;
+
+  void dismissReminderPrompt() {
+    _prefs.setBool(_promptKey, true);
+    _settingChanged();
   }
 
   bool get seeded => _prefs.getBool(_seededKey) ?? false;
@@ -289,6 +311,7 @@ class LibraryStore extends ChangeNotifier with AcademicData {
     );
     _useDynamicColor = _prefs.getBool(_dynamicKey) ?? false;
     _nightReading = _prefs.getBool(_nightKey) ?? false;
+    _reminders = ReminderSettings.decode(_prefs.getString(_remindersKey));
 
     final academic = _prefs.getString(_academicKey);
     if (academic != null) {

@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
+import '../core/services.dart';
 import '../data/academic_models.dart';
+import '../data/reminder_planner.dart';
 import '../theme/motion.dart';
 import '../widgets/brutal.dart';
 import '../widgets/course_sheets.dart';
 import '../widgets/event_sheets.dart';
 import '../widgets/import_flow.dart';
+import '../widgets/material_link.dart';
 import 'calendar_tab.dart';
 import 'courses_tab.dart';
 import 'home_screen.dart';
@@ -27,8 +32,38 @@ class _AppShellState extends State<AppShell> {
   final _importing = ValueNotifier<bool>(false);
   final _calendarDay = ValueNotifier<DateTime>(dateOnly(DateTime.now()));
 
+  StreamSubscription<String>? _taps;
+  bool _listening = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_listening) return;
+    _listening = true;
+    final reminders = ServicesScope.of(context).reminders;
+    _taps = reminders.taps.listen(_openFromReminder);
+    // The notification that started the app, if any.
+    reminders.takeLaunchPayload().then((p) {
+      if (p != null && mounted) _openFromReminder(p);
+    });
+  }
+
+  /// Takes the user where a tapped reminder points.
+  void _openFromReminder(String payload) {
+    final target = parseReminderPayload(payload);
+    if (target == null || !mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    final tab = target.tab;
+    if (tab != null && tab >= 0 && tab <= 3) _select(tab);
+    final docId = target.docId;
+    if (docId != null) {
+      openMaterial(context, MaterialLink(docId: docId, page: target.page));
+    }
+  }
+
   @override
   void dispose() {
+    _taps?.cancel();
     _importing.dispose();
     _calendarDay.dispose();
     super.dispose();
@@ -57,6 +92,8 @@ class _AppShellState extends State<AppShell> {
           radius: 16,
           offset: const Offset(3, 4),
           child: FloatingActionButton.extended(
+            // No hero: tab changes and route pushes can overlap (e.g. from a reminder).
+            heroTag: null,
             onPressed: onPressed,
             isExtended: _fabExtended,
             backgroundColor: scheme.primary,
@@ -89,6 +126,8 @@ class _AppShellState extends State<AppShell> {
         () => showCourseEditor(context),
       ),
       3 => FloatingActionButton.extended(
+        // No hero: tab changes and route pushes can overlap (e.g. from a reminder).
+        heroTag: null,
         key: const ValueKey('New plan'),
         onPressed: () => startNewPlan(context),
         isExtended: _fabExtended,
@@ -96,6 +135,8 @@ class _AppShellState extends State<AppShell> {
         label: const Text('New plan'),
       ),
       _ => FloatingActionButton.extended(
+        // No hero: tab changes and route pushes can overlap (e.g. from a reminder).
+        heroTag: null,
         key: const ValueKey('Add event'),
         onPressed: () => showEventEditor(context, day: _calendarDay.value),
         isExtended: _fabExtended,

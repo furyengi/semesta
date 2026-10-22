@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:semesta/app.dart';
 import 'package:semesta/core/doc_storage.dart';
 import 'package:semesta/core/library_service.dart';
+import 'package:semesta/core/notifier.dart';
+import 'package:semesta/core/reminder_service.dart';
+import 'package:semesta/data/reminder_planner.dart';
 import 'package:semesta/core/pdf_backend.dart';
 import 'package:semesta/core/services.dart';
 import 'package:semesta/data/library_store.dart';
@@ -102,15 +106,28 @@ class _FakeViewerState extends State<_FakeViewer> {
 Uint8List pdfBytes([int n = 8]) => Uint8List.fromList(List.filled(n, 1));
 
 class TestEnv {
-  TestEnv(this.store, this.storage, this.backend, this.library);
+  TestEnv(
+    this.store,
+    this.storage,
+    this.backend,
+    this.library,
+    this.notifier,
+    this.reminders,
+  );
 
   final LibraryStore store;
   final MemoryDocStorage storage;
   final FakeBackend backend;
   final LibraryService library;
+  final FakeNotifier notifier;
+  final ReminderService reminders;
 
-  Services get services =>
-      Services(library: library, storage: storage, backend: backend);
+  Services get services => Services(
+    library: library,
+    storage: storage,
+    backend: backend,
+    reminders: reminders,
+  );
 
   static Future<TestEnv> create({int pages = 12}) async {
     SharedPreferences.setMockInitialValues({});
@@ -122,7 +139,14 @@ class TestEnv {
       storage: storage,
       backend: backend,
     );
-    return TestEnv(store, storage, backend, library);
+    final notifier = FakeNotifier();
+    final reminders = ReminderService(
+      store: store,
+      notifier: notifier,
+      debounce: const Duration(milliseconds: 50),
+      use24h: () => false,
+    );
+    return TestEnv(store, storage, backend, library, notifier, reminders);
   }
 
   Future<void> addDoc(String fileName, {int pages = 12}) => library.importFiles(
@@ -134,12 +158,19 @@ Future<TestEnv> pumpApp(
   WidgetTester tester, {
   TestEnv? env,
   Future<void> Function(TestEnv env)? setup,
+
+  /// Leave the "turn on reminders" tip visible (other tests hide it so it
+  /// doesn't push content around).
+  bool reminderPrompt = false,
+  bool startReminders = false,
 }) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   final e = env ?? await TestEnv.create();
+  if (!reminderPrompt) e.store.dismissReminderPrompt();
   if (setup != null) await setup(e);
+  if (startReminders) await e.reminders.start();
   await tester.pumpWidget(
     SemestaApp(
       store: e.store,
@@ -149,4 +180,67 @@ Future<TestEnv> pumpApp(
   );
   await tester.pumpAndSettle();
   return e;
+}
+
+/// Records what would be scheduled, and lets tests tap notifications.
+class FakeNotifier implements Notifier {
+  FakeNotifier({
+    this.supported = true,
+    this.permission = true,
+    this.grantOnRequest = true,
+  });
+
+  /// Whether the system currently allows notifications.
+  bool permission;
+
+  /// Whether the next permission request is granted.
+  bool grantOnRequest;
+
+  List<ReminderSpec> scheduled = const [];
+  int replaceCalls = 0;
+  int permissionRequests = 0;
+  final shown = <({String title, String body, String? payload})>[];
+  String? launch;
+  final _taps = StreamController<String>.broadcast();
+
+  void tap(String payload) => _taps.add(payload);
+
+  @override
+  bool supported;
+
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<bool> areEnabled() async => permission;
+
+  @override
+  Future<bool> requestPermission() async {
+    permissionRequests++;
+    if (grantOnRequest) permission = true;
+    return permission;
+  }
+
+  @override
+  Future<void> replaceAll(List<ReminderSpec> specs) async {
+    replaceCalls++;
+    scheduled = specs;
+  }
+
+  @override
+  Future<void> showNow({
+    required String title,
+    required String body,
+    String? payload,
+  }) async => shown.add((title: title, body: body, payload: payload));
+
+  @override
+  Stream<String> get taps => _taps.stream;
+
+  @override
+  Future<String?> takeLaunchPayload() async {
+    final p = launch;
+    launch = null;
+    return p;
+  }
 }

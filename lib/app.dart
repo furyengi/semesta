@@ -27,13 +27,28 @@ class SemestaApp extends StatefulWidget {
   State<SemestaApp> createState() => _SemestaAppState();
 }
 
-class _SemestaAppState extends State<SemestaApp> {
+class _SemestaAppState extends State<SemestaApp> with WidgetsBindingObserver {
   Color? _accent;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAccent();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Roll the reminder window forward and pick up permission changes.
+    if (state == AppLifecycleState.resumed) {
+      widget.services.reminders.sync();
+    }
   }
 
   Future<void> _loadAccent() async {

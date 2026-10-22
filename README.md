@@ -16,7 +16,8 @@ Reading comes first. The calendar and planner exist to support it.
 | Course Spaces | Done |
 | Calendar and timetable | Done |
 | Study planner | **Done (this release)** |
-| Reminders and home-screen widgets | Planned (need native Android code) |
+| Reminders | **Done (this release)**, Android only; not yet run on a device |
+| Home-screen widgets | Planned (needs native Android code) |
 
 ### Library and reader
 
@@ -61,6 +62,22 @@ Reading comes first. The calendar and planner exist to support it.
 - Sessions also appear in the Day, Week and Month calendar views and in the
   Library's *Next up* card.
 
+### Reminders
+
+- Local notifications (no account or server): before **classes**, **exams**,
+  **study sessions** and **assignment deadlines**, plus an optional **daily
+  summary**. Each type has its own switch and lead time (Settings > Reminders).
+- Off until you turn it on, which asks for notification permission. A tip on
+  the Plan tab offers it once you have something to be reminded about.
+- Tapping a reminder opens what it is about: a class or session with linked
+  material opens that PDF at the page, otherwise the right tab.
+- Reminders are rebuilt from your data whenever it changes and whenever you
+  open the app, so deleted or finished items never fire. They cover the next
+  two weeks, so open the app now and then to keep them topped up.
+- They use inexact alarms (no special permission), so they can arrive a few
+  minutes late when the phone is saving battery.
+- Android only for now. Elsewhere Settings says reminders aren't available.
+
 ## Design
 
 Dark-first Material 3. The reader, search and settings stay calm and plain;
@@ -95,12 +112,15 @@ Screens depend on `PdfBackend` and `DocStorage` (injected through
 ```sh
 flutter pub get
 flutter run            # Android device/emulator
-flutter run -d chrome  # quick preview; files are kept in memory only
+flutter run -d chrome  # quick preview; files are kept in memory only, no reminders
 flutter test
 ```
 
 To fill an empty app with a sample semester (for demos and screenshots):
 `flutter run --dart-define=SEMESTA_DEMO=true`.
+
+Android needs core-library desugaring for scheduled notifications; it is
+already enabled in `android/app/build.gradle.kts`.
 
 Native builds use [pdfrx](https://pub.dev/packages/pdfrx) (PDFium) and need a C
 toolchain; see its README for the native build requirements.

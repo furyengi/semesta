@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/academic_models.dart';
+import '../core/services.dart';
 import '../data/store_scope.dart';
 import '../theme/motion.dart';
 import '../widgets/brutal.dart';
@@ -75,6 +76,7 @@ class PlannerTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 const _WeekSummary(),
+                const _ReminderPrompt(),
                 if (attention) ...[
                   header('Needs attention'),
                   for (final s in overdue.take(3))
@@ -288,6 +290,101 @@ class _EmptyPlans extends StatelessWidget {
             label: const Text('New plan'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One-time tip to turn on reminders, shown once there is something to be
+/// reminded about.
+class _ReminderPrompt extends StatelessWidget {
+  const _ReminderPrompt();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = StoreScope.of(context);
+    final service = ServicesScope.of(context).reminders;
+    final show =
+        service.supported &&
+        !store.reminders.enabled &&
+        !store.reminderPromptDismissed &&
+        (store.events.isNotEmpty ||
+            store.sessions.isNotEmpty ||
+            store.assignments.isNotEmpty);
+    if (!show) return const SizedBox.shrink();
+
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.notifications_active_outlined,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Never miss a class or session',
+                      style: text.titleSmall?.copyWith(
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Get a nudge before classes, study sessions and deadlines.',
+                style: text.bodyMedium?.copyWith(
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  FilledButton(
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final ok = await service.enable();
+                      if (!ok) {
+                        messenger
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Notifications are blocked for Semesta. Allow them in your phone\u2019s settings.',
+                              ),
+                            ),
+                          );
+                      }
+                    },
+                    child: const Text('Turn on'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: store.dismissReminderPrompt,
+                    child: Text(
+                      'Not now',
+                      style: TextStyle(color: scheme.onSecondaryContainer),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

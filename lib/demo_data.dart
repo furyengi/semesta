@@ -1,4 +1,6 @@
+import 'core/notifier.dart';
 import 'data/academic_models.dart';
+import 'data/reminder_planner.dart';
 import 'data/library_store.dart';
 
 /// Build with `--dart-define=SEMESTA_DEMO=true` to fill an empty app with a
@@ -142,4 +144,20 @@ void seedDemoSemester(LibraryStore store) {
     title: 'Quiz prep: eigenvalues',
     due: due(2, 12, 0),
   );
+}
+
+/// Stands in for notifications in demo builds on platforms that have none
+/// (like the web preview), so the reminder screens can be tried.
+class DemoNotifier extends NoopNotifier {
+  @override
+  bool get supported => true;
+
+  @override
+  Future<bool> areEnabled() async => true;
+
+  @override
+  Future<bool> requestPermission() async => true;
+
+  @override
+  Future<void> replaceAll(List<ReminderSpec> specs) async {}
 }

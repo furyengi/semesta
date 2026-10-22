@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'doc_storage.dart';
 import 'library_service.dart';
 import 'pdf_backend.dart';
+import 'reminder_service.dart';
 
 /// Engine and storage dependencies, injected so tests can swap them.
 class Services {
@@ -10,11 +11,13 @@ class Services {
     required this.library,
     required this.storage,
     required this.backend,
+    required this.reminders,
   });
 
   final LibraryService library;
   final DocStorage storage;
   final PdfBackend backend;
+  final ReminderService reminders;
 }
 
 class ServicesScope extends InheritedWidget {
